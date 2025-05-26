@@ -1,12 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Player : MonoBehaviour
 {
     [SerializeField] private float _moveSpeed = 5f;
-    [SerializeField] private float _rotationSpeed = 20f;
+    [SerializeField] private float _rotationSpeed = 30f;
     
     [SerializeField] private GameInput _gameInput;
     [SerializeField] private Rigidbody _rigidbody;
@@ -14,10 +15,18 @@ public class Player : MonoBehaviour
     private bool isWalking;
     private Vector2 movePosition = Vector2.zero;
 
+    private ClearCounter _clearCounter;
+
     private void Awake()
     {
         _rigidbody = GetComponent<Rigidbody>();
     }
+
+    private void Start()
+    {
+        _gameInput.OnInteract += OnInteract;
+    }
+
 
     private void Update()
     {
@@ -48,7 +57,28 @@ public class Player : MonoBehaviour
         Vector3 movement = moveDir * (_moveSpeed * Time.fixedDeltaTime);
         _rigidbody.MovePosition(_rigidbody.position + movement);
     }
-    
+        
+    private void OnInteract(object sender, EventArgs e)
+    {
+        _clearCounter?.Interact();
+    }
+
+    private void OnCollisionStay(Collision other)
+    {
+        if (other.gameObject.TryGetComponent(out ClearCounter clearCounter))
+        {
+            _clearCounter = clearCounter;
+        }
+    }
+
+    private void OnCollisionExit(Collision other)
+    {
+        if (other.gameObject.TryGetComponent(out ClearCounter clearCounter))
+        {
+            _clearCounter = null;
+        }
+    }
+
     public bool IsWalking()
     {
         return isWalking;
