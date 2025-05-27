@@ -6,37 +6,55 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    [SerializeField] private float _moveSpeed = 5f;
-    [SerializeField] private float _rotationSpeed = 30f;
+    public static Player Instance { get; private set; }
+    //Events
+    public event EventHandler<OnSelectedCounterChangedEventArgs> OnSelectedCounterChanged;
+    public class OnSelectedCounterChangedEventArgs : EventArgs
+    {
+        public ClearCounter SelectedCounter;
+    }
     
-    [SerializeField] private GameInput _gameInput;
-    [SerializeField] private Rigidbody _rigidbody;
+    //Serialized Fields
+    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float rotationSpeed = 30f;
     
-    private bool isWalking;
-    private Vector2 movePosition = Vector2.zero;
+    [SerializeField] private GameInput gameInput;
+    [SerializeField] private Rigidbody rb;
+    
+    //Private Fields
+    private bool _isWalking;
+    private Vector2 _movePosition = Vector2.zero;
 
-    private ClearCounter _clearCounter;
-
+    private ClearCounter _selectedCounter;
+    
+    
     private void Awake()
     {
-        _rigidbody = GetComponent<Rigidbody>();
+        if (!Instance)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
     private void Start()
     {
-        _gameInput.OnInteract += OnInteract;
+        gameInput.OnInteract += OnInteract;
     }
 
 
     private void Update()
     {
-        movePosition = _gameInput.GetMovementVector();
+        _movePosition = gameInput.GetMovementVector();
     }
 
     void FixedUpdate()
     {
-        HandleRotation(movePosition);
-        HandleMovement(movePosition);
+        HandleRotation(_movePosition);
+        HandleMovement(_movePosition);
     }
     
     private void HandleRotation(Vector2 movePosition)
@@ -45,29 +63,34 @@ public class Player : MonoBehaviour
         {
             float angle = Mathf.Atan2(movePosition.x, movePosition.y) * Mathf.Rad2Deg;
             var rotation = Quaternion.Euler(0, angle, 0);
-            var targetRotation = Quaternion.Slerp(transform.rotation, rotation, _rotationSpeed * Time.fixedDeltaTime);
-            _rigidbody.MoveRotation(targetRotation);
+            var targetRotation = Quaternion.Slerp(transform.rotation, rotation, rotationSpeed * Time.fixedDeltaTime);
+            rb.MoveRotation(targetRotation);
         }
     }
     
     private void HandleMovement(Vector2 movePosition)
     {
         var moveDir = new Vector3(movePosition.x, 0, movePosition.y);
-        isWalking = moveDir != Vector3.zero;
-        Vector3 movement = moveDir * (_moveSpeed * Time.fixedDeltaTime);
-        _rigidbody.MovePosition(_rigidbody.position + movement);
+        _isWalking = moveDir != Vector3.zero;
+        Vector3 movement = moveDir * (moveSpeed * Time.fixedDeltaTime);
+        rb.MovePosition(rb.position + movement);
+    }
+    
+    public bool IsWalking()
+    {
+        return _isWalking;
     }
         
     private void OnInteract(object sender, EventArgs e)
     {
-        _clearCounter?.Interact();
+        _selectedCounter?.Interact();
     }
 
     private void OnCollisionStay(Collision other)
     {
         if (other.gameObject.TryGetComponent(out ClearCounter clearCounter))
         {
-            _clearCounter = clearCounter;
+            SetSelectedCounter(clearCounter);
         }
     }
 
@@ -75,12 +98,17 @@ public class Player : MonoBehaviour
     {
         if (other.gameObject.TryGetComponent(out ClearCounter clearCounter))
         {
-            _clearCounter = null;
+            SetSelectedCounter(null);
         }
     }
 
-    public bool IsWalking()
+    private void SetSelectedCounter(ClearCounter clearCounter)
     {
-        return isWalking;
+        _selectedCounter = clearCounter;
+        
+        OnSelectedCounterChanged?.Invoke(this, new OnSelectedCounterChangedEventArgs
+        {
+            SelectedCounter = clearCounter
+        });
     }
 }
